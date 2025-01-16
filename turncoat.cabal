@@ -24,7 +24,15 @@ library
   import:          warnings, defaults
   hs-source-dirs:  src
   exposed-modules: Turncoat
-  build-depends:   base >=4.7 && <5
+  build-depends:
+    , aeson
+    , base           >=4.7 && <5
+    , beam-core
+    , beam-sqlite
+    , req
+    , sqlite-simple
+    , text
+    , time
 
 executable turncoat
   import:         warnings, defaults
