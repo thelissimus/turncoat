@@ -1,1 +1,166 @@
-module Turncoat () where
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE NoFieldSelectors #-}
+
+module Turncoat (module Turncoat) where
+
+import Data.Int (Int64)
+import Data.Kind (Type)
+import Data.Text (Text)
+import Data.Time (UTCTime)
+import Database.Beam
+
+type role PlatformT nominal
+type PlatformT :: (Type -> Type) -> Type
+data PlatformT f = MkPlatform
+  { id :: C f Int64
+  , name :: C f Text
+  , lastSyncTime :: C f UTCTime
+  }
+  deriving stock (Generic)
+  deriving anyclass (Beamable)
+
+type Platform :: Type
+type Platform = PlatformT Identity
+
+type PlatformId :: Type
+type PlatformId = PrimaryKey PlatformT Identity
+
+deriving stock instance Show Platform
+deriving stock instance Show PlatformId
+
+instance Table PlatformT where
+  data PrimaryKey PlatformT f = MkPlatformId (C f Int64)
+    deriving stock (Generic)
+    deriving anyclass (Beamable)
+  primaryKey = MkPlatformId . (.id)
+
+type role AccountT nominal
+type AccountT :: (Type -> Type) -> Type
+data AccountT f = MkAccount
+  { id :: C f Int64
+  , platformId :: PrimaryKey PlatformT f
+  , username :: C f Text
+  , accessToken :: C f (Maybe Text)
+  }
+  deriving stock (Generic)
+  deriving anyclass (Beamable)
+
+type Account :: Type
+type Account = AccountT Identity
+
+type AccountId :: Type
+type AccountId = PrimaryKey AccountT Identity
+
+deriving stock instance Show Account
+deriving stock instance Show AccountId
+
+instance Table AccountT where
+  data PrimaryKey AccountT f = MkAccountId (C f Int64)
+    deriving stock (Generic)
+    deriving anyclass (Beamable)
+  primaryKey = MkAccountId . (.id)
+
+type role FollowerT nominal
+type FollowerT :: (Type -> Type) -> Type
+data FollowerT f = MkFollower
+  { id :: C f Int64
+  , accountId :: PrimaryKey AccountT f
+  , username :: C f Text
+  , firstSeen :: C f UTCTime
+  , lastSeen :: C f UTCTime
+  }
+  deriving stock (Generic)
+  deriving anyclass (Beamable)
+
+type Follower :: Type
+type Follower = FollowerT Identity
+
+type FollowerId :: Type
+type FollowerId = PrimaryKey FollowerT Identity
+
+deriving stock instance Show Follower
+deriving stock instance Show FollowerId
+
+instance Table FollowerT where
+  data PrimaryKey FollowerT f = MkFollowerId (C f Int64)
+    deriving stock (Generic)
+    deriving anyclass (Beamable)
+  primaryKey = MkFollowerId . (.id)
+
+type role UnfollowT nominal
+type UnfollowT :: (Type -> Type) -> Type
+data UnfollowT f = MkUnfollow
+  { id :: C f Int64
+  , followerId :: PrimaryKey FollowerT f
+  , unfollowedAt :: C f UTCTime
+  }
+  deriving stock (Generic)
+  deriving anyclass (Beamable)
+
+type Unfollow :: Type
+type Unfollow = UnfollowT Identity
+
+type UnfollowId :: Type
+type UnfollowId = PrimaryKey UnfollowT Identity
+
+deriving stock instance Show Unfollow
+deriving stock instance Show UnfollowId
+
+instance Table UnfollowT where
+  data PrimaryKey UnfollowT f = MkUnfollowId (C f Int64)
+    deriving stock (Generic)
+    deriving anyclass (Beamable)
+  primaryKey = MkUnfollowId . (.id)
+
+type role TurncoatDb representational
+type TurncoatDb :: (Type -> Type) -> Type
+data TurncoatDb f = MkTurncoatDb
+  { platforms :: f (TableEntity PlatformT)
+  , accounts :: f (TableEntity AccountT)
+  , followers :: f (TableEntity FollowerT)
+  , unfollows :: f (TableEntity UnfollowT)
+  }
+  deriving stock (Generic)
+  deriving anyclass (Database be)
+
+turncoatDb :: DatabaseSettings be TurncoatDb
+turncoatDb =
+  defaultDbSettings
+    `withDbModification` dbModification
+      { platforms = modifyTableFields tableModification{lastSyncTime = "last_sync_time"}
+      , accounts =
+          modifyTableFields
+            tableModification
+              { platformId = MkPlatformId "platform_id"
+              , accessToken = "access_token"
+              }
+      , followers =
+          modifyTableFields
+            tableModification
+              { firstSeen = "first_seen"
+              , lastSeen = "last_seen"
+              , accountId = MkAccountId "account_id"
+              }
+      , unfollows =
+          modifyTableFields
+            tableModification
+              { followerId = MkFollowerId "follow_id"
+              , unfollowedAt = "unfollowed_at"
+              }
+      }
+
+platforms :: DatabaseEntity be TurncoatDb (TableEntity PlatformT)
+platforms = turncoatDb.platforms
+
+accounts :: DatabaseEntity be TurncoatDb (TableEntity AccountT)
+accounts = turncoatDb.accounts
+
+followers :: DatabaseEntity be TurncoatDb (TableEntity FollowerT)
+followers = turncoatDb.followers
+
+unfollows :: DatabaseEntity be TurncoatDb (TableEntity UnfollowT)
+unfollows = turncoatDb.unfollows
