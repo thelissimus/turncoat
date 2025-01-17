@@ -7,7 +7,7 @@
 
 module Turncoat (module Turncoat) where
 
-import Data.Int (Int64)
+import Data.Int (Int32)
 import Data.Kind (Type)
 import Data.Text (Text)
 import Data.Time (UTCTime)
@@ -16,7 +16,7 @@ import Database.Beam
 type role PlatformT nominal
 type PlatformT :: (Type -> Type) -> Type
 data PlatformT f = MkPlatform
-  { id :: C f Int64
+  { id :: C f Int32
   , name :: C f Text
   , lastSyncTime :: C f UTCTime
   }
@@ -33,7 +33,7 @@ deriving stock instance Show Platform
 deriving stock instance Show PlatformId
 
 instance Table PlatformT where
-  data PrimaryKey PlatformT f = MkPlatformId (C f Int64)
+  data PrimaryKey PlatformT f = MkPlatformId (C f Int32)
     deriving stock (Generic)
     deriving anyclass (Beamable)
   primaryKey = MkPlatformId . (.id)
@@ -41,7 +41,7 @@ instance Table PlatformT where
 type role AccountT nominal
 type AccountT :: (Type -> Type) -> Type
 data AccountT f = MkAccount
-  { id :: C f Int64
+  { id :: C f Int32
   , platformId :: PrimaryKey PlatformT f
   , username :: C f Text
   , accessToken :: C f (Maybe Text)
@@ -59,7 +59,7 @@ deriving stock instance Show Account
 deriving stock instance Show AccountId
 
 instance Table AccountT where
-  data PrimaryKey AccountT f = MkAccountId (C f Int64)
+  data PrimaryKey AccountT f = MkAccountId (C f Int32)
     deriving stock (Generic)
     deriving anyclass (Beamable)
   primaryKey = MkAccountId . (.id)
@@ -67,7 +67,7 @@ instance Table AccountT where
 type role FollowerT nominal
 type FollowerT :: (Type -> Type) -> Type
 data FollowerT f = MkFollower
-  { id :: C f Int64
+  { id :: C f Int32
   , accountId :: PrimaryKey AccountT f
   , username :: C f Text
   , firstSeen :: C f UTCTime
@@ -86,7 +86,7 @@ deriving stock instance Show Follower
 deriving stock instance Show FollowerId
 
 instance Table FollowerT where
-  data PrimaryKey FollowerT f = MkFollowerId (C f Int64)
+  data PrimaryKey FollowerT f = MkFollowerId (C f Int32)
     deriving stock (Generic)
     deriving anyclass (Beamable)
   primaryKey = MkFollowerId . (.id)
@@ -94,7 +94,7 @@ instance Table FollowerT where
 type role UnfollowT nominal
 type UnfollowT :: (Type -> Type) -> Type
 data UnfollowT f = MkUnfollow
-  { id :: C f Int64
+  { id :: C f Int32
   , followerId :: PrimaryKey FollowerT f
   , unfollowedAt :: C f UTCTime
   }
@@ -111,7 +111,7 @@ deriving stock instance Show Unfollow
 deriving stock instance Show UnfollowId
 
 instance Table UnfollowT where
-  data PrimaryKey UnfollowT f = MkUnfollowId (C f Int64)
+  data PrimaryKey UnfollowT f = MkUnfollowId (C f Int32)
     deriving stock (Generic)
     deriving anyclass (Beamable)
   primaryKey = MkUnfollowId . (.id)
