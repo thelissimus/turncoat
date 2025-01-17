@@ -163,13 +163,7 @@ turncoatDb :: DatabaseSettings Sqlite TurncoatDb
 turncoatDb = unCheckDatabase migrations
 
 platforms :: DatabaseEntity Sqlite TurncoatDb (TableEntity PlatformT)
-platforms = turncoatDb.platforms
-
 accounts :: DatabaseEntity Sqlite TurncoatDb (TableEntity AccountT)
-accounts = turncoatDb.accounts
-
 followers :: DatabaseEntity Sqlite TurncoatDb (TableEntity FollowerT)
-followers = turncoatDb.followers
-
 unfollows :: DatabaseEntity Sqlite TurncoatDb (TableEntity UnfollowT)
-unfollows = turncoatDb.unfollows
+MkTurncoatDb{platforms, accounts, followers, unfollows} = turncoatDb
