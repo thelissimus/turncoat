@@ -28,6 +28,7 @@ library
     , aeson
     , base           >=4.7 && <5
     , beam-core
+    , beam-migrate
     , beam-sqlite
     , req
     , sqlite-simple

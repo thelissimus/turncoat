@@ -11,7 +11,11 @@ import Data.Int (Int32)
 import Data.Kind (Type)
 import Data.Text (Text)
 import Data.Time (UTCTime)
+
 import Database.Beam
+import Database.Beam.Backend
+import Database.Beam.Migrate
+import Database.Beam.Sqlite
 
 type role PlatformT nominal
 type PlatformT :: (Type -> Type) -> Type
@@ -127,40 +131,49 @@ data TurncoatDb f = MkTurncoatDb
   deriving stock (Generic)
   deriving anyclass (Database be)
 
-turncoatDb :: DatabaseSettings be TurncoatDb
-turncoatDb =
-  defaultDbSettings
+migrations :: CheckedDatabaseSettings Sqlite TurncoatDb
+migrations =
+  defaultMigratableDbSettings
     `withDbModification` dbModification
-      { platforms = modifyTableFields tableModification{lastSyncTime = "last_sync_time"}
+      { platforms = modifyCheckedTable id checkedTableModification{lastSyncTime = "last_sync_time"}
       , accounts =
-          modifyTableFields
-            tableModification
+          modifyCheckedTable
+            id
+            checkedTableModification
               { platformId = MkPlatformId "platform_id"
               , accessToken = "access_token"
               }
       , followers =
-          modifyTableFields
-            tableModification
+          modifyCheckedTable
+            id
+            checkedTableModification
               { firstSeen = "first_seen"
               , lastSeen = "last_seen"
               , accountId = MkAccountId "account_id"
               }
       , unfollows =
-          modifyTableFields
-            tableModification
+          modifyCheckedTable
+            id
+            checkedTableModification
               { followerId = MkFollowerId "follow_id"
               , unfollowedAt = "unfollowed_at"
               }
       }
 
-platforms :: DatabaseEntity be TurncoatDb (TableEntity PlatformT)
+turncoatDb :: DatabaseSettings Sqlite TurncoatDb
+turncoatDb = unCheckDatabase migrations
+
+platforms :: DatabaseEntity Sqlite TurncoatDb (TableEntity PlatformT)
 platforms = turncoatDb.platforms
 
-accounts :: DatabaseEntity be TurncoatDb (TableEntity AccountT)
+accounts :: DatabaseEntity Sqlite TurncoatDb (TableEntity AccountT)
 accounts = turncoatDb.accounts
 
-followers :: DatabaseEntity be TurncoatDb (TableEntity FollowerT)
+followers :: DatabaseEntity Sqlite TurncoatDb (TableEntity FollowerT)
 followers = turncoatDb.followers
 
-unfollows :: DatabaseEntity be TurncoatDb (TableEntity UnfollowT)
+unfollows :: DatabaseEntity Sqlite TurncoatDb (TableEntity UnfollowT)
 unfollows = turncoatDb.unfollows
+
+instance HasDefaultSqlDataType Sqlite UTCTime where
+  defaultSqlDataType _ _ _ = timestampType Nothing False
