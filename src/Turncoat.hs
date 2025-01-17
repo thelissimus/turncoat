@@ -10,10 +10,9 @@ module Turncoat (module Turncoat) where
 import Data.Int (Int32)
 import Data.Kind (Type)
 import Data.Text (Text)
-import Data.Time (UTCTime)
+import Data.Time (LocalTime)
 
 import Database.Beam
-import Database.Beam.Backend
 import Database.Beam.Migrate
 import Database.Beam.Sqlite
 
@@ -22,7 +21,7 @@ type PlatformT :: (Type -> Type) -> Type
 data PlatformT f = MkPlatform
   { id :: C f Int32
   , name :: C f Text
-  , lastSyncTime :: C f UTCTime
+  , lastSyncTime :: C f LocalTime
   }
   deriving stock (Generic)
   deriving anyclass (Beamable)
@@ -74,8 +73,8 @@ data FollowerT f = MkFollower
   { id :: C f Int32
   , accountId :: PrimaryKey AccountT f
   , username :: C f Text
-  , firstSeen :: C f UTCTime
-  , lastSeen :: C f UTCTime
+  , firstSeen :: C f LocalTime
+  , lastSeen :: C f LocalTime
   }
   deriving stock (Generic)
   deriving anyclass (Beamable)
@@ -100,7 +99,7 @@ type UnfollowT :: (Type -> Type) -> Type
 data UnfollowT f = MkUnfollow
   { id :: C f Int32
   , followerId :: PrimaryKey FollowerT f
-  , unfollowedAt :: C f UTCTime
+  , unfollowedAt :: C f LocalTime
   }
   deriving stock (Generic)
   deriving anyclass (Beamable)
@@ -174,6 +173,3 @@ followers = turncoatDb.followers
 
 unfollows :: DatabaseEntity Sqlite TurncoatDb (TableEntity UnfollowT)
 unfollows = turncoatDb.unfollows
-
-instance HasDefaultSqlDataType Sqlite UTCTime where
-  defaultSqlDataType _ _ _ = timestampType Nothing False
