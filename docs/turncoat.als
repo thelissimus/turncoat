@@ -1,6 +1,7 @@
 module turncoat
 
-open util/ordering[Timestamp]
+open util/ordering[Event] as oe
+open util/ordering[Timestamp] as ot
 
 enum Platform { GitHub, Twitter }
 enum Action { Follow, Unfollow }
@@ -31,12 +32,12 @@ pred lastActionWasFollow[src, tgt : User, tm : Timestamp] {
     e.source = src
     e.target = tgt
     e.action = Follow
-    lt[e.timestamp, tm]
-    no between : Event | { // and no inbetween
+    ot/lt[e.timestamp, tm]
+    no between : Event | { // and no `Unfollow` inbetween
       between.source = src
       between.target = tgt
       between.action = Unfollow
-      lt[e.timestamp, between.timestamp] and lt[between.timestamp, tm]
+      ot/lt[e.timestamp, between.timestamp] and ot/lt[between.timestamp, tm]
     }
   } // meaning it was the previous event
 }
@@ -57,4 +58,14 @@ fact "No duplicate actions with the same timestamp" {
   }
 }
 
-run {}
+fact "Event order matches Timestamp order" {
+  all ea, eb : Event | oe/lt[ea, eb] iff ot/lt[ea.timestamp, eb.timestamp]
+}
+
+assert first_action_is_Follow {
+  oe/first.action = Follow
+}
+
+check first_action_is_Follow
+
+run {} for 3 but exactly 3 User
