@@ -43,37 +43,35 @@ pred sameParticipants[ea, eb : Event] {
   ea.target = eb.target
 }
 
-fact "Follow/Unfollow alternation" {
-  all e : Event | e.action = Follow implies {
-    no eb : Event | {
-      sameParticipants[eb, e]
-      eb.action = Follow
-      lt[eb.timestamp, e.timestamp]
-      no between : Event | {
-        sameParticipants[between, e]
-        between.action = Unfollow
-        lt[eb.timestamp, between.timestamp]
-        lt[between.timestamp, e.timestamp]
-      }
+pred lastActionWasFollow[src, tgt : User, tm : Timestamp] {
+  some e : Event | { // there was some event before
+    e.source = src
+    e.target = tgt
+    e.action = Follow
+    lt[e.timestamp, tm]
+    no between : Event | { // and no inbetween
+      between.source = src
+      between.target = tgt
+      between.action = Unfollow
+      lt[e.timestamp, between.timestamp] and lt[between.timestamp, tm]
     }
-  }
-
-  all e : Event | e.action = Unfollow implies {
-    some eb : Event | {
-      sameParticipants[eb, e]
-      eb.action = Follow
-      lt[eb.timestamp, e.timestamp]
-      no between : Event | {
-        sameParticipants[between, e]
-        lt[eb.timestamp, between.timestamp]
-        lt[between.timestamp, e.timestamp]
-      }
-    }
-  }
+  } // meaning it was the previous event
 }
 
-fact "Unique timestamps" {
-  no disj ea, eb : Event | ea.timestamp = eb.timestamp
+fact "Follow/Unfollow alternation" {
+  all e : Event | e.action = Follow implies
+    not lastActionWasFollow[e.source, e.target, e.timestamp]
+
+  all e : Event | e.action = Unfollow implies
+    lastActionWasFollow[e.source, e.target, e.timestamp]
+}
+
+fact "No duplicate actions with the same timestamp" {
+  no disj ea, eb : Event | {
+    sameParticipants[ea, eb]
+    ea.timestamp = eb.timestamp
+    ea.action = eb.action
+  }
 }
 
 run {}
