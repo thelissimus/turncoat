@@ -1,19 +1,14 @@
 module turncoat
 
-open util/ordering[Id]
 open util/ordering[Timestamp]
 
 enum Platform { GitHub, Twitter }
 enum Action { Follow, Unfollow }
 
-sig Id {}
-sig Username {}
 sig Timestamp {}
 
 sig User {
   platform : one Platform,
-  platformId : one Id,
-  platformUsername : one Username,
 }
 
 sig Event {
@@ -24,18 +19,6 @@ sig Event {
 } {
   source != target
   source.platform = target.platform
-}
-
-fact "Unique usernames and identifiers within platform" {
-  all disj ua, ub : User | ua.platform = ub.platform implies {
-    ua.platformId != ub.platformId
-    ua.platformUsername != ub.platformUsername
-  }
-}
-
-check NoDuplicateUsernamesOrIds {
-  no disj ca, cb : User | ca.platform = cb.platform and
-    (ca.platformId = cb.platformId or ca.platformUsername = cb.platformUsername)
 }
 
 pred sameParticipants[ea, eb : Event] {
