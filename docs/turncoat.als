@@ -34,7 +34,7 @@ pred sameParticipants[ea, eb : Event] {
 }
 
 pred lastActionWasFollow[src, tgt : User, tm : Timestamp] {
-  some e : Event | { // there was some event before
+  some e : Event | { // there was an event before
     e.source = src
     e.target = tgt
     e.action = Follow
@@ -67,7 +67,7 @@ fact Time {
 }
 
 fact EventsFromApiResponse {
-  all e : Event | some r : ApiResponse | e.source in r.followers implies {
+  all e : Event | one r : ApiResponse | e.source in r.followers implies {
     e.target = r.target
     e.timestamp = r.timestamp
     e.action = Follow
@@ -80,26 +80,32 @@ fact EventsFromApiResponse {
 
 fact NewFollowers {
   all r : ApiResponse, u : User |
-    (u in r.followers and not lastActionWasFollow[u, r.target, r.timestamp]) implies some e : Event | {
-      e.source = u
-      e.target = r.target
-      e.action = Follow
-      e.timestamp = r.timestamp
-    }
+    (u in r.followers and not lastActionWasFollow[u, r.target, r.timestamp])
+      implies one e : Event | {
+        e.source = u
+        e.target = r.target
+        e.action = Follow
+        e.timestamp = r.timestamp
+      }
 }
 
 fact MissingFollowers {
   all r : ApiResponse, u : User |
-    (u not in r.followers and lastActionWasFollow[u, r.target, r.timestamp]) implies some e : Event | {
-      e.source = u
-      e.target = r.target
-      e.action = Unfollow
-      e.timestamp = r.timestamp
-    }
+    (u not in r.followers and lastActionWasFollow[u, r.target, r.timestamp])
+      implies one e : Event | {
+        e.source = u
+        e.target = r.target
+        e.action = Unfollow
+        e.timestamp = r.timestamp
+      }
 }
 
 assert FirstActionIsFollow {
   oe/first.action = Follow
+}
+
+assert ConsistentResponseAndEventTimestamps {
+  all e : Event | one r : ApiResponse | e.timestamp = r.timestamp
 }
 
 assert NoNewFollowEventsOnEmptyResponse {
@@ -110,6 +116,7 @@ assert NoNewFollowEventsOnEmptyResponse {
 }
 
 check FirstActionIsFollow
+check ConsistentResponseAndEventTimestamps
 check NoNewFollowEventsOnEmptyResponse
 
 run {} for 3 but exactly 3 User
