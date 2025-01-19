@@ -3,167 +3,138 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE NoFieldSelectors #-}
 
 module Turncoat (module Turncoat) where
 
 import Data.Int (Int32)
 import Data.Kind (Type)
-import Data.Text (Text)
+import Data.Text (Text, unpack)
 import Data.Time (LocalTime)
 
 import Database.Beam
+import Database.Beam.Backend.SQL
+import Database.Beam.Backend.Types
 import Database.Beam.Migrate
 import Database.Beam.Sqlite
 
-type role PlatformT nominal
-type PlatformT :: (Type -> Type) -> Type
-data PlatformT f = MkPlatform
-  { id :: C f Int32
-  , name :: C f Text
-  , lastSyncTime :: C f LocalTime
-  }
-  deriving stock (Generic)
-  deriving anyclass (Beamable)
-
 type Platform :: Type
-type Platform = PlatformT Identity
+data Platform
+  = GitHub
+  | Twitter
+  deriving stock (Show, Eq)
 
-type PlatformId :: Type
-type PlatformId = PrimaryKey PlatformT Identity
+type Action :: Type
+data Action
+  = Follow
+  | Unfollow
+  deriving stock (Show, Eq)
 
-deriving stock instance Show Platform
-deriving stock instance Show PlatformId
-
-instance Table PlatformT where
-  data PrimaryKey PlatformT f = MkPlatformId (C f Int32)
-    deriving stock (Generic)
-    deriving anyclass (Beamable)
-  primaryKey = MkPlatformId . (.id)
-
-type role AccountT nominal
-type AccountT :: (Type -> Type) -> Type
-data AccountT f = MkAccount
+type role UserT nominal
+type UserT :: (Type -> Type) -> Type
+data UserT f = MkUser
   { id :: C f Int32
-  , platformId :: PrimaryKey PlatformT f
-  , username :: C f Text
-  , accessToken :: C f (Maybe Text)
+  , platform :: C f Platform
+  , platformId :: C f Text
+  , platformUsername :: C f Text
   }
   deriving stock (Generic)
   deriving anyclass (Beamable)
 
-type Account :: Type
-type Account = AccountT Identity
+type User :: Type
+type User = UserT Identity
 
-type AccountId :: Type
-type AccountId = PrimaryKey AccountT Identity
+type UserId :: Type
+type UserId = PrimaryKey UserT Identity
 
-deriving stock instance Show Account
-deriving stock instance Show AccountId
+deriving stock instance Show User
+deriving stock instance Show UserId
 
-instance Table AccountT where
-  data PrimaryKey AccountT f = MkAccountId (C f Int32)
+instance Table UserT where
+  data PrimaryKey UserT f = MkUserId (C f Int32)
     deriving stock (Generic)
     deriving anyclass (Beamable)
-  primaryKey = MkAccountId . (.id)
+  primaryKey = MkUserId . (.id)
 
-type role FollowerT nominal
-type FollowerT :: (Type -> Type) -> Type
-data FollowerT f = MkFollower
+type role EventT nominal
+type EventT :: (Type -> Type) -> Type
+data EventT f = MkEvent
   { id :: C f Int32
-  , accountId :: PrimaryKey AccountT f
-  , username :: C f Text
-  , firstSeen :: C f LocalTime
-  , lastSeen :: C f LocalTime
+  , source :: PrimaryKey UserT f
+  , target :: PrimaryKey UserT f
+  , action :: C f Action
+  , timestamp :: C f LocalTime
   }
   deriving stock (Generic)
   deriving anyclass (Beamable)
 
-type Follower :: Type
-type Follower = FollowerT Identity
+type Event :: Type
+type Event = EventT Identity
 
-type FollowerId :: Type
-type FollowerId = PrimaryKey FollowerT Identity
+type EventId :: Type
+type EventId = PrimaryKey EventT Identity
 
-deriving stock instance Show Follower
-deriving stock instance Show FollowerId
+deriving stock instance Show Event
+deriving stock instance Show EventId
 
-instance Table FollowerT where
-  data PrimaryKey FollowerT f = MkFollowerId (C f Int32)
+instance Table EventT where
+  data PrimaryKey EventT f = MkEventId (C f Int32)
     deriving stock (Generic)
     deriving anyclass (Beamable)
-  primaryKey = MkFollowerId . (.id)
-
-type role UnfollowT nominal
-type UnfollowT :: (Type -> Type) -> Type
-data UnfollowT f = MkUnfollow
-  { id :: C f Int32
-  , followerId :: PrimaryKey FollowerT f
-  , unfollowedAt :: C f LocalTime
-  }
-  deriving stock (Generic)
-  deriving anyclass (Beamable)
-
-type Unfollow :: Type
-type Unfollow = UnfollowT Identity
-
-type UnfollowId :: Type
-type UnfollowId = PrimaryKey UnfollowT Identity
-
-deriving stock instance Show Unfollow
-deriving stock instance Show UnfollowId
-
-instance Table UnfollowT where
-  data PrimaryKey UnfollowT f = MkUnfollowId (C f Int32)
-    deriving stock (Generic)
-    deriving anyclass (Beamable)
-  primaryKey = MkUnfollowId . (.id)
+  primaryKey = MkEventId . (.id)
 
 type role TurncoatDb representational
 type TurncoatDb :: (Type -> Type) -> Type
 data TurncoatDb f = MkTurncoatDb
-  { platforms :: f (TableEntity PlatformT)
-  , accounts :: f (TableEntity AccountT)
-  , followers :: f (TableEntity FollowerT)
-  , unfollows :: f (TableEntity UnfollowT)
+  { users :: f (TableEntity UserT)
+  , events :: f (TableEntity EventT)
   }
   deriving stock (Generic)
   deriving anyclass (Database be)
+
+instance (HasSqlValueSyntax be String) => HasSqlValueSyntax be Platform where
+  sqlValueSyntax = autoSqlValueSyntax
+
+instance (BeamBackend be, FromBackendRow be Text) => FromBackendRow be Platform where
+  fromBackendRow =
+    fromBackendRow >>= \case
+      "GitHub" -> pure GitHub
+      "Twitter" -> pure Twitter
+      val -> fail ("Invalid value for Platform: " ++ unpack val)
+
+instance HasDefaultSqlDataType Sqlite Platform where
+  defaultSqlDataType _ _ _ = varCharType Nothing Nothing
+
+instance (HasSqlValueSyntax be String) => HasSqlValueSyntax be Action where
+  sqlValueSyntax = autoSqlValueSyntax
+
+instance (BeamBackend be, FromBackendRow be Text) => FromBackendRow be Action where
+  fromBackendRow =
+    fromBackendRow >>= \case
+      "Follow" -> pure Follow
+      "Unfollow" -> pure Unfollow
+      val -> fail ("Invalid value for Platform: " ++ unpack val)
+
+instance HasDefaultSqlDataType Sqlite Action where
+  defaultSqlDataType _ _ _ = varCharType Nothing Nothing
 
 migrations :: CheckedDatabaseSettings Sqlite TurncoatDb
 migrations =
   defaultMigratableDbSettings
     `withDbModification` dbModification
-      { platforms = modifyCheckedTable id checkedTableModification{lastSyncTime = "last_sync_time"}
-      , accounts =
+      { users =
           modifyCheckedTable
             id
             checkedTableModification
-              { platformId = MkPlatformId "platform_id"
-              , accessToken = "access_token"
-              }
-      , followers =
-          modifyCheckedTable
-            id
-            checkedTableModification
-              { firstSeen = "first_seen"
-              , lastSeen = "last_seen"
-              , accountId = MkAccountId "account_id"
-              }
-      , unfollows =
-          modifyCheckedTable
-            id
-            checkedTableModification
-              { followerId = MkFollowerId "follow_id"
-              , unfollowedAt = "unfollowed_at"
+              { platformId = "platform_id"
+              , platformUsername = "platform_username"
               }
       }
 
 turncoatDb :: DatabaseSettings Sqlite TurncoatDb
 turncoatDb = unCheckDatabase migrations
 
-platforms :: DatabaseEntity Sqlite TurncoatDb (TableEntity PlatformT)
-accounts :: DatabaseEntity Sqlite TurncoatDb (TableEntity AccountT)
-followers :: DatabaseEntity Sqlite TurncoatDb (TableEntity FollowerT)
-unfollows :: DatabaseEntity Sqlite TurncoatDb (TableEntity UnfollowT)
-MkTurncoatDb{platforms, accounts, followers, unfollows} = turncoatDb
+users :: DatabaseEntity Sqlite TurncoatDb (TableEntity UserT)
+events :: DatabaseEntity Sqlite TurncoatDb (TableEntity EventT)
+MkTurncoatDb{users, events} = turncoatDb
