@@ -48,12 +48,12 @@ pred lastActionWasFollow[src, tgt : User, tm : Timestamp] {
   } // meaning it was the previous event
 }
 
-fact "Follow/Unfollow alternation" {
+fact ActionAlternation {
   all current : Event | lastActionWasFollow[current.source, current.target, current.timestamp]
     implies current.action = Unfollow else current.action = Follow
 }
 
-fact "No duplicate actions with the same timestamp" {
+fact NoDuplicateEvents {
   no disj ea, eb : Event | {
     sameParticipants[ea, eb]
     ea.timestamp = eb.timestamp
@@ -61,12 +61,12 @@ fact "No duplicate actions with the same timestamp" {
   }
 }
 
-fact "Timestamp order" {
+fact Time {
   all ea, eb : Event | oe/lt[ea, eb] iff ot/lt[ea.timestamp, eb.timestamp]
   all ra, rb : ApiResponse | oa/lt[ra, rb] iff ot/lt[ra.timestamp, rb.timestamp]
 }
 
-fact "Events are caused by an API response" {
+fact EventsFromApiResponse {
   all e : Event | some r : ApiResponse | e.source in r.followers implies {
     e.target = r.target
     e.timestamp = r.timestamp
@@ -78,7 +78,7 @@ fact "Events are caused by an API response" {
   }
 }
 
-fact "New followers create follow events" {
+fact NewFollowers {
   all r : ApiResponse, u : User |
     (u in r.followers and not lastActionWasFollow[u, r.target, r.timestamp]) implies some e : Event | {
       e.source = u
@@ -88,7 +88,7 @@ fact "New followers create follow events" {
     }
 }
 
-fact "Missing followers create unfollow events" {
+fact MissingFollowers {
   all r : ApiResponse, u : User |
     (u not in r.followers and lastActionWasFollow[u, r.target, r.timestamp]) implies some e : Event | {
       e.source = u
@@ -98,7 +98,7 @@ fact "Missing followers create unfollow events" {
     }
 }
 
-assert first_action_is_Follow {
+assert FirstActionIsFollow {
   oe/first.action = Follow
 }
 
@@ -109,7 +109,7 @@ assert NoNewFollowEventsOnEmptyResponse {
   }
 }
 
-check first_action_is_Follow
+check FirstActionIsFollow
 check NoNewFollowEventsOnEmptyResponse
 
 run {} for 3 but exactly 3 User
