@@ -9,7 +9,6 @@
 module Turncoat (module Turncoat) where
 
 import Data.Int (Int32)
-import Data.Kind (Type)
 import Data.Text (Text, unpack)
 import Data.Time (LocalTime)
 
@@ -19,20 +18,16 @@ import Database.Beam.Backend.Types
 import Database.Beam.Migrate
 import Database.Beam.Sqlite
 
-type Platform :: Type
 data Platform
   = GitHub
   | Twitter
   deriving stock (Show, Eq)
 
-type Action :: Type
 data Action
   = Follow
   | Unfollow
   deriving stock (Show, Eq)
 
-type role UserT nominal
-type UserT :: (Type -> Type) -> Type
 data UserT f = MkUser
   { id :: C f Int32
   , platform :: C f Platform
@@ -42,10 +37,7 @@ data UserT f = MkUser
   deriving stock (Generic)
   deriving anyclass (Beamable)
 
-type User :: Type
 type User = UserT Identity
-
-type UserId :: Type
 type UserId = PrimaryKey UserT Identity
 
 deriving stock instance Show User
@@ -57,8 +49,6 @@ instance Table UserT where
     deriving anyclass (Beamable)
   primaryKey = MkUserId . (.id)
 
-type role EventT nominal
-type EventT :: (Type -> Type) -> Type
 data EventT f = MkEvent
   { id :: C f Int32
   , source :: PrimaryKey UserT f
@@ -69,10 +59,7 @@ data EventT f = MkEvent
   deriving stock (Generic)
   deriving anyclass (Beamable)
 
-type Event :: Type
 type Event = EventT Identity
-
-type EventId :: Type
 type EventId = PrimaryKey EventT Identity
 
 deriving stock instance Show Event
@@ -84,8 +71,6 @@ instance Table EventT where
     deriving anyclass (Beamable)
   primaryKey = MkEventId . (.id)
 
-type role TurncoatDb representational
-type TurncoatDb :: (Type -> Type) -> Type
 data TurncoatDb f = MkTurncoatDb
   { users :: f (TableEntity UserT)
   , events :: f (TableEntity EventT)
