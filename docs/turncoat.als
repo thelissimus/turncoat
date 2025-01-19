@@ -25,7 +25,7 @@ pred sameParticipants[ea, eb : Event] {
   ea.target = eb.target
 }
 
-pred followed[src, tgt : User, tm : Timestamp] {
+pred lastActionWasFollow[src, tgt : User, tm : Timestamp] {
   some e : Event | { // there was some event before
     e.source = src
     e.target = tgt
@@ -41,8 +41,8 @@ pred followed[src, tgt : User, tm : Timestamp] {
 }
 
 fact "Follow/Unfollow alternation" {
-  all e : Event | e.action = Follow implies not followed[e.source, e.target, e.timestamp]
-  all e : Event | e.action = Unfollow implies followed[e.source, e.target, e.timestamp]
+  all current : Event | lastActionWasFollow[current.source, current.target, current.timestamp]
+    implies current.action = Unfollow else current.action = Follow
 }
 
 fact "No duplicate actions with the same timestamp" {
